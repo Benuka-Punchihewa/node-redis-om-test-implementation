@@ -17,6 +17,7 @@ import CommonUtil from "./modules/common/common.util";
 import ErrorMiddleware from "./modules/error/error.middleware";
 
 // route imports
+import UserRoutes from "./user/user.route";
 
 // import errors
 import NotFoundError from "./modules/error/error.classes/NotFoundError";
@@ -40,6 +41,7 @@ app.get(constants.API.PREFIX.concat("/ping"), (req, res, next) => {
 });
 
 // route declarations
+app.use(constants.API.PREFIX.concat("/users"), UserRoutes);
 
 // not found route
 app.use((req, res, next) => {
@@ -51,8 +53,8 @@ app.use(ErrorMiddleware.errorHandler);
 
 const start = async () => {
   try {
-    const dbConig = config.getDBConfig();
-    await CommonUtil.connectDB(dbConig.MONGODB_URL);
+    // const dbConig = config.getDBConfig();
+    // await CommonUtil.connectDB(dbConig.MONGODB_URL);
 
     const port = process.env.SERVER_PORT || constants.SERVER.PORT;
 
