@@ -1,11 +1,15 @@
+import ConflictError from "../../modules/error/error.classes/ConflictError";
 import { IUser } from "../user.interface";
 import userRedisRepository from "./user.redis.repository";
 
 const createUser = async (user: IUser) => {
   const userRepository = await userRedisRepository.getUserRepository();
   const childRepository = await userRedisRepository.getChildRepository();
+  const promiseArray: Array<Promise<any>> = [];
 
-  console.log(user);
+  // duplication validation
+  const userObj = await getUserRedisObjectById(user.id);
+  if (userObj) throw new ConflictError(`A user with ID, "${user.id}" exists!`);
 
   const userEntity = userRepository.createEntity();
   userEntity.id = user.id;
@@ -14,25 +18,38 @@ const createUser = async (user: IUser) => {
   userEntity.address = user.address;
   userEntity.contactNumber = user.contactNumber;
 
-  await userRepository.save(userEntity);
+  promiseArray.push(userRepository.save(userEntity));
 
   for (const child of user.children) {
+    // duplication validation
+    const userObj = await getChildRedisObjectById(child.id);
+    if (userObj)
+      throw new ConflictError(`A child with ID, "${child.id}" exists!`);
+
     const childEntity = childRepository.createEntity();
     childEntity.id = child.id;
     childEntity.parentId = user.id;
     childEntity.name = child.name;
     childEntity.dob = child.dob;
 
-    await childRepository.save(childEntity);
+    promiseArray.push(childRepository.save(childEntity));
   }
+
+  // resolve promises
+  await Promise.all(promiseArray);
 };
 
-const getUserRedisObject = async (id: string) => {
+const getUserRedisObjectById = async (id: string) => {
   const userRepository = await userRedisRepository.getUserRepository();
-  return userRepository.fetch(id);
+  return userRepository.search().where("id").equals(id).return.first();
 };
 
-const getChildrenRedisObject = async (parentId: string) => {
+const getChildRedisObjectById = async (id: string) => {
+  const userRepository = await userRedisRepository.getChildRepository();
+  return userRepository.search().where("id").equals(id).return.first();
+};
+
+const getChildrenRedisObjectByParentId = async (parentId: string) => {
   const childRepository = await userRedisRepository.getChildRepository();
   return childRepository
     .search()
@@ -42,15 +59,17 @@ const getChildrenRedisObject = async (parentId: string) => {
 };
 
 const getUser = async (userId: string) => {
-  const [userObj, childrenObj] = await Promise.all([
-    getUserRedisObject(userId),
-    getChildrenRedisObject(userId),
+  const [userObj, childrenObjs] = await Promise.all([
+    getUserRedisObjectById(userId),
+    getChildrenRedisObjectByParentId(userId),
   ]);
 
-  const user: IUser = {
-    ...userObj,
-    children: childrenObj,
-  };
+  let user: any | null = null;
+  if (userObj && childrenObjs)
+    user = {
+      ...userObj.toJSON(),
+      children: childrenObjs,
+    };
 
   return user;
 };

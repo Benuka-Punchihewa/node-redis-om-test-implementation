@@ -34,12 +34,14 @@ const childSchema = new Schema(Child, {
 const getUserRepository = async () => {
   const RedisOMClient = await RedisConfig.getRedisOmClient();
   const userRepository = RedisOMClient.fetchRepository(userSchema);
+  await userRepository.createIndex();
   return userRepository;
 };
 
 const getChildRepository = async () => {
   const RedisOMClient = await RedisConfig.getRedisOmClient();
   const childRepository = RedisOMClient.fetchRepository(childSchema);
+  await childRepository.createIndex();
   return childRepository;
 };
 
